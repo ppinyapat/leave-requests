@@ -1,0 +1,71 @@
+{
+  "name": "LeaveRequest",
+  "type": "object",
+  "properties": {
+    "employee_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email of the requesting employee"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Name of the requesting employee"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department of the requesting employee"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Leave start date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Leave end date"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Reason for leave request"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "auto_rejected"
+      ],
+      "default": "pending",
+      "description": "Current status of the leave request"
+    },
+    "rejection_reason": {
+      "type": "string",
+      "description": "Reason for rejection (auto or manual)"
+    },
+    "manager_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email of the approving manager"
+    },
+    "days_count": {
+      "type": "number",
+      "description": "Number of leave days requested"
+    },
+    "approval_token": {
+      "type": "string",
+      "description": "Unique token for email-based approval"
+    }
+  },
+  "required": [
+    "employee_email",
+    "employee_name",
+    "department",
+    "start_date",
+    "end_date",
+    "reason",
+    "manager_email",
+    "days_count"
+  ]
+}
