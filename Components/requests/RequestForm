@@ -1,1 +1,219 @@
 
+import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { differenceInDays, format, addDays, startOfDay } from "date-fns";
+
+export default function RequestForm({ employees, onSubmit, isSubmitting }) {
+  const [formData, setFormData] = useState({
+    employee_email: '',
+    start_date: '',
+    end_date: '',
+    reason: ''
+  });
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [validation, setValidation] = useState(null);
+  const [daysCount, setDaysCount] = useState(0);
+
+  useEffect(() => {
+    if (formData.start_date && formData.end_date) {
+      const start = startOfDay(new Date(formData.start_date));
+      const end = startOfDay(new Date(formData.end_date));
+      const days = differenceInDays(end, start) + 1;
+      setDaysCount(Math.max(0, days));
+    } else {
+      setDaysCount(0);
+    }
+  }, [formData.start_date, formData.end_date]);
+
+  const handleEmployeeChange = (email) => {
+    const employee = employees.find(emp => emp.email === email);
+    setSelectedEmployee(employee);
+    setFormData({ ...formData, employee_email: email });
+  };
+
+  const validateDates = () => {
+    if (!formData.start_date || !formData.end_date) return null;
+
+    const start = new Date(formData.start_date);
+    const end = new Date(formData.end_date);
+    const today = new Date();
+    
+    // Check blackout dates (single digit days 1-9 and day before each, plus promotion days)
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const checkDate = new Date(d); // Create a new Date object to avoid modifying 'd' in the loop
+      const day = checkDate.getDate();
+      const month = checkDate.getMonth() + 1; // JavaScript months are 0-indexed
+      
+      // Single digit days (1-9) and day before (so block 1-10)
+      if (day <= 10) {
+        return {
+          type: 'error',
+          message: `Leave not allowed on ${format(checkDate, 'MMM d')} (single digit day restriction)`
+        };
+      }
+      
+      // Promotion days and day before
+      const promotionDates = [
+        { month: 2, day: 2 }, // Feb 2
+        { month: 3, day: 3 }, // Mar 3
+        { month: 4, day: 4 }, // Apr 4
+      ];
+      
+      for (const promo of promotionDates) {
+        if (month === promo.month && (day === promo.day || day === promo.day - 1)) {
+          return {
+            type: 'error',
+            message: `Leave not allowed on ${format(checkDate, 'MMM d')} (promotion day or day before)`
+          };
+        }
+      }
+    }
+
+    if (start < startOfDay(today)) {
+      return {
+        type: 'error',
+        message: 'Leave cannot be requested for past dates'
+      };
+    }
+
+    if (end < start) {
+      return {
+        type: 'error',
+        message: 'End date cannot be before start date'
+      };
+    }
+
+    if (daysCount > 4) {
+      return {
+        type: 'error',
+        message: 'Maximum 4 days leave allowed per month'
+      };
+    }
+
+    return {
+      type: 'success',
+      message: `${daysCount} day${daysCount !== 1 ? 's' : ''} leave request looks good`
+    };
+  };
+
+  useEffect(() => {
+    setValidation(validateDates());
+  }, [formData.start_date, formData.end_date, daysCount]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (validation?.type === 'error') return;
+    
+    const submitData = {
+      ...formData,
+      employee_name: selectedEmployee?.name || '',
+      department: selectedEmployee?.department || '',
+      manager_email: selectedEmployee?.manager_email || '',
+      days_count: daysCount
+    };
+    
+    onSubmit(submitData);
+  };
+
+  return (
+    <Card className="bg-white border-slate-200 shadow-lg">
+      <CardHeader className="border-b border-slate-100">
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-blue-600" />
+          Submit Leave Request
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="employee">Select Employee</Label>
+            <Select onValueChange={handleEmployeeChange} required>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose employee..." />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((employee) => (
+                  <SelectItem key={employee.id} value={employee.email}>
+                    {employee.name} ({employee.department})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start_date">Start Date</Label>
+              <Input
+                id="start_date"
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                className="w-full"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end_date">End Date</Label>
+              <Input
+                id="end_date"
+                type="date"
+                value={formData.end_date}
+                onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                className="w-full"
+                required
+              />
+            </div>
+          </div>
+
+          {validation && (
+            <Alert className={validation.type === 'error' ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}>
+              {validation.type === 'error' ? 
+                <AlertTriangle className="h-4 w-4 text-red-600" /> : 
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+              }
+              <AlertDescription className={validation.type === 'error' ? 'text-red-700' : 'text-emerald-700'}>
+                {validation.message}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason for Leave</Label>
+            <Textarea
+              id="reason"
+              value={formData.reason}
+              onChange={(e) => setFormData({...formData, reason: e.target.value})}
+              placeholder="Please provide a reason for your leave request..."
+              className="w-full h-24"
+              required
+            />
+          </div>
+
+          <Button 
+            type="submit" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-all duration-200"
+            disabled={isSubmitting || validation?.type === 'error' || !selectedEmployee}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Submitting Request...
+              </>
+            ) : (
+              `Submit Leave Request${daysCount > 0 ? ` (${daysCount} days)` : ''}`
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
