@@ -1,1 +1,80 @@
+import React from 'react';
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Clock, User } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
 
+const statusColors = {
+  pending: "bg-amber-100 text-amber-700 border-amber-200",
+  approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  rejected: "bg-red-100 text-red-700 border-red-200",
+  auto_rejected: "bg-red-100 text-red-700 border-red-200"
+};
+
+export default function RecentRequests({ requests, isLoading }) {
+  if (isLoading) {
+    return (
+      <Card className="bg-white border-slate-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-slate-400" />
+            Recent Requests
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Array(3).fill(0).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-4 bg-slate-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-white border-slate-200">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="w-5 h-5 text-slate-600" />
+          Recent Requests
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {requests.length === 0 ? (
+            <div className="text-center py-8">
+              <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500 font-medium">No leave requests yet</p>
+            </div>
+          ) : (
+            requests.slice(0, 5).map((request) => (
+              <div key={request.id} className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                  <User className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="font-semibold text-slate-900">{request.employee_name}</p>
+                    <Badge className={`${statusColors[request.status]} border text-xs`}>
+                      {request.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-1">{request.reason}</p>
+                  <div className="flex items-center gap-4 text-xs text-slate-500">
+                    <span>{format(new Date(request.start_date), 'MMM d')} - {format(new Date(request.end_date), 'MMM d')}</span>
+                    <span>{request.days_count} days</span>
+                    <span>{request.department}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
