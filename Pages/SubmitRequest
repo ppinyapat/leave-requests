@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Employee } from "@/entities/Employee";
 import { LeaveRequest } from "@/entities/LeaveRequest";
@@ -73,16 +72,135 @@ export default function SubmitRequest() {
     }
 
     // Check monthly limit (current month)
-    const currentMonth = startDate.getMonth();
-    const currentYear = startDate.getFullYear();
+    const newRequestDays = differenceInDays(endDate, startDate) + 1;
+    if (newRequestDays > 4) {
+        return { approved: false, reason: "Leave requests cannot exceed 4 days." };
+    }
     
     const monthlyRequests = await LeaveRequest.filter({
       employee_email: requestData.employee_email,
       status: 'approved'
     });
 
-    let currentMonthDays = 0;
-    monthlyRequests.forEach(req => {
-      const reqStart = new Date(req.start_date);
-      if (reqStart.getMonth() === currentMonth && reqStart.getFullYear() === currentYear) {
+    const leaveDaysByMonth = {};
 
+    monthlyRequests.forEach(req => {
+        const reqStart = startOfDay(new Date(req.start_date));
+        const reqEnd = startOfDay(new Date(req.end_date));
+
+        for (let d = new Date(reqStart); d <= reqEnd; d.setDate(d.getDate() + 1)) {
+            const month = d.getMonth();
+            const year = d.getFullYear();
+            const key = `${year}-${month}`;
+            leaveDaysByMonth[key] = (leaveDaysByMonth[key] || 0) + 1;
+        }
+    });
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const month = d.getMonth();
+        const year = d.getFullYear();
+        const key = `${year}-${month}`;
+        const daysInMonth = (leaveDaysByMonth[key] || 0) + 1;
+        if (daysInMonth > 4) {
+            return { approved: false, reason: `Exceeds 4 days/month limit for ${format(d, 'MMMM yyyy')}.` };
+        }
+        leaveDaysByMonth[key] = daysInMonth;
+    }
+
+
+    // Department conflict check
+    const allApprovedRequests = await LeaveRequest.filter({ status: 'approved' });
+    const employee = await Employee.find(requestData.employee_email);
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const currentDate = startOfDay(d);
+      const conflictingRequest = allApprovedRequests.find(req => {
+        if (req.department !== employee.department) return false;
+        const reqStart = startOfDay(new Date(req.start_date));
+        const reqEnd = startOfDay(new Date(req.end_date));
+        return currentDate >= reqStart && currentDate <= reqEnd;
+      });
+
+      if (conflictingRequest) {
+        return {
+          approved: false,
+          reason: `Department conflict on ${format(currentDate, 'MMM d')}. Someone from your department is already on leave.`
+        };
+      }
+    }
+
+    return { approved: true };
+  };
+
+  const handleSubmit = async (formData) => {
+    setIsSubmitting(true);
+    setSubmitStatus(null);
+
+    const requestData = {
+      ...formData,
+      status: 'pending',
+      days_count: differenceInDays(new Date(formData.end_date), new Date(formData.start_date)) + 1
+    };
+
+    try {
+      const validationResult = await validateBusinessRules(requestData);
+
+      if (!validationResult.approved) {
+        const rejectedRequest = new LeaveRequest({
+          ...requestData,
+          status: 'auto_rejected',
+          rejection_reason: validationResult.reason,
+        });
+        await rejectedRequest.save();
+        setSubmitStatus({ success: false, message: validationResult.reason });
+      } else {
+        const newRequest = new LeaveRequest(requestData);
+        await newRequest.save();
+        setSubmitStatus({ success: true, message: "Leave request submitted successfully!" });
+      }
+    } catch (error) {
+      console.error("Error submitting request:", error);
+      setSubmitStatus({ success: false, message: "An unexpected error occurred. Please try again." });
+    }
+
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="p-6 md:p-8 space-y-6">
+      <div className="flex items-center gap-4">
+        <Link to={createPageUrl("Dashboard")}>
+          <Button variant="outline" size="icon">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <h1 className="text-3xl font-bold text-slate-900">New Leave Request</h1>
+      </div>
+
+      {submitStatus && (
+        <Alert variant={submitStatus.success ? "default" : "destructive"}>
+          {submitStatus.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+          <AlertDescription>{submitStatus.message}</AlertDescription>
+        </Alert>
+      )}
+
+      {submitStatus?.success ? (
+         <div className="text-center p-8 bg-slate-50 rounded-xl">
+           <h2 className="text-2xl font-bold text-green-600 mb-2">Request Submitted!</h2>
+           <p className="text-slate-600 mb-6">Your manager has been notified. You can track the status from your dashboard.</p>
+           <Link to={createPageUrl("Dashboard")}>
+             <Button>Back to Dashboard</Button>
+           </Link>
+         </div>
+      ) : (
+        <RequestForm
+          employees={employees}
+          users={users}
+          isLoading={isLoading}
+          isSubmitting={isSubmitting}
+          onSubmit={handleSubmit}
+        />
+      )}
+    </div>
+  );
+}
