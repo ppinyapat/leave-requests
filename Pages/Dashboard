@@ -1,1 +1,162 @@
+import React, { useState, useEffect } from "react";
+import { LeaveRequest } from "@/entities/LeaveRequest";
+import { Employee } from "@/entities/Employee";
+import { User } from "@/entities/User";
+import { CalendarDays, Users, Clock, CheckCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { createPageUrl } from "@/utils";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 
+import StatsCard from "../components/dashboard/StatsCard";
+import RecentRequests from "../components/dashboard/RecentRequests";
+import LeaveCalendar from "../components/calendar/LeaveCalendar";
+
+export default function Dashboard() {
+  const [requests, setRequests] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [requestsData, employeesData, userData] = await Promise.all([
+        LeaveRequest.list("-created_date"),
+        Employee.list(),
+        User.me().catch(() => null)
+      ]);
+      setRequests(requestsData);
+      setEmployees(employeesData);
+      setCurrentUser(userData);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    }
+    setIsLoading(false);
+  };
+
+  const isOwner = currentUser?.role === 'admin';
+  
+  // Filter data based on user role
+  const visibleRequests = isOwner ? requests : requests.filter(r => r.employee_email === currentUser?.email);
+  const approvedRequests = requests.filter(r => r.status === 'approved');
+  const pendingCount = visibleRequests.filter(r => r.status === 'pending').length;
+  const approvedCount = visibleRequests.filter(r => r.status === 'approved').length;
+  const thisMonthRequests = visibleRequests.filter(r => {
+    const requestDate = new Date(r.created_date);
+    const now = new Date();
+    return requestDate.getMonth() === now.getMonth() && requestDate.getFullYear() === now.getFullYear();
+  }).length;
+
+  return (
+    <div className="p-6 md:p-8 space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-slate-900">
+          {isOwner ? 'Admin Dashboard' : 'My Leave Dashboard'}
+        </h1>
+        <p className="text-slate-600 font-medium">
+          {isOwner 
+            ? 'Monitor and manage leave requests across your organization' 
+            : 'Track your leave requests and remaining balance'
+          }
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          title="Pending Requests"
+          value={pendingCount}
+          subtitle="Awaiting approval"
+          icon={Clock}
+          gradient="bg-gradient-to-br from-amber-500 to-orange-600"
+        />
+        <StatsCard
+          title="Approved This Month"
+          value={approvedCount}
+          subtitle="Successfully processed"
+          icon={CheckCircle}
+          gradient="bg-gradient-to-br from-emerald-500 to-green-600"
+        />
+        <StatsCard
+          title={isOwner ? "Total Employees" : "Your Requests"}
+          value={isOwner ? employees.length : visibleRequests.length}
+          subtitle={isOwner ? "In the system" : "All time"}
+          icon={Users}
+          gradient="bg-gradient-to-br from-indigo-500 to-indigo-600"
+        />
+        <StatsCard
+          title="This Month"
+          value={thisMonthRequests}
+          subtitle="Leave requests"
+          icon={CalendarDays}
+          gradient="bg-gradient-to-br from-purple-500 to-purple-600"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="xl:col-span-2 space-y-8">
+          <RecentRequests requests={visibleRequests} isLoading={isLoading} />
+          
+          {/* Calendar Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-900">Leave Calendar</h2>
+              <Link to={createPageUrl("LeaveCalendar")}>
+                <Button variant="outline" size="sm">
+                  Full View
+                </Button>
+              </Link>
+            </div>
+            {isLoading ? (
+              <div className="animate-pulse">
+                <div className="h-80 bg-slate-200 rounded-xl"></div>
+              </div>
+            ) : (
+              <LeaveCalendar leaveRequests={approvedRequests} compact={true} />
+            )}
+          </div>
+        </div>
+        
+        <div className="space-y-6">
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white">
+            <h3 className="text-xl font-bold mb-2">Leave Policy Reminder</h3>
+            <div className="space-y-2 text-indigo-100">
+              <p>• Maximum 4 days leave per month</p>
+              <p>• No department conflicts allowed</p>
+              <p>• Blackout: Single digit days & day before</p>
+              <p>• Promotion days: Feb 2, Mar 3, Apr 4</p>
+            </div>
+          </div>
+          
+          {isOwner && (
+            <Card className="bg-white border-slate-200">
+              <CardHeader>
+                <CardTitle className="text-lg">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <Link to={createPageUrl("ManageEmployees")} className="block">
+                    <Button variant="outline" className="w-full justify-start gap-2">
+                      <Users className="w-4 h-4" />
+                      Manage Employees
+                    </Button>
+                  </Link>
+                  <Link to={createPageUrl("ApproveRequests")} className="block">
+                    <Button variant="outline" className="w-full justify-start gap-2">
+                      <CalendarDays className="w-4 h-4" />
+                      Review Pending Requests
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
