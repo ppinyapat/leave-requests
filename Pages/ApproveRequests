@@ -1,1 +1,304 @@
+import React, { useState, useEffect } from "react";
+import { LeaveRequest } from "@/entities/LeaveRequest";
+import { User } from "@/entities/User";
+import { SendEmail } from "@/integrations/Core";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, X, Calendar, User as UserIcon, ArrowLeft, Clock } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { format } from "date-fns";
+import PermissionGuard from "../components/auth/PermissionGuard";
 
+const statusColors = {
+  pending: "bg-amber-100 text-amber-700 border-amber-200",
+  approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  rejected: "bg-red-100 text-red-700 border-red-200",
+  auto_rejected: "bg-red-100 text-red-700 border-red-200"
+};
+
+export default function ApproveRequests() {
+  const [requests, setRequests] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [processingIds, setProcessingIds] = useState(new Set());
+  const [alert, setAlert] = useState(null);
+
+  useEffect(() => {
+    loadData();
+    
+    // Check for token in URL for email-based approval
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    if (token) {
+      handleTokenApproval(token);
+    }
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [requestsData, usersData] = await Promise.all([
+        LeaveRequest.list("-created_date"),
+        User.list()
+      ]);
+      setRequests(requestsData);
+      setUsers(usersData);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    }
+    setIsLoading(false);
+  };
+
+  const handleTokenApproval = async (token) => {
+    try {
+      const tokenRequest = requests.find(req => req.approval_token === token);
+      if (tokenRequest && tokenRequest.status === 'pending') {
+        setAlert({
+          type: 'info',
+          message: `Found leave request for ${tokenRequest.employee_name}. Please approve or reject below.`
+        });
+      }
+    } catch (error) {
+      console.error("Error processing token:", error);
+    }
+  };
+
+  const handleApproval = async (requestId, approved, comments = '') => {
+    if (processingIds.has(requestId)) return;
+    
+    setProcessingIds(prev => new Set([...prev, requestId]));
+    
+    try {
+      const request = requests.find(r => r.id === requestId);
+      if (!request) {
+        throw new Error('Request not found');
+      }
+
+      const newStatus = approved ? 'approved' : 'rejected';
+      const updateData = {
+        status: newStatus,
+        rejection_reason: approved ? null : comments || 'Rejected by manager'
+      };
+
+      await LeaveRequest.update(requestId, updateData);
+
+      // Check if employee is in the system before sending email
+      const employeeInSystem = users.find(user => user.email === request.employee_email);
+      
+      if (employeeInSystem) {
+        try {
+          const statusText = approved ? 'APPROVED' : 'REJECTED';
+          const emailSubject = `Leave Request ${statusText} - ${request.employee_name}`;
+          const emailBody = `Dear ${request.employee_name},
+
+Your leave request has been ${statusText.toLowerCase()}.
+
+Request Details:
+- Dates: ${format(new Date(request.start_date), 'MMM d, yyyy')} - ${format(new Date(request.end_date), 'MMM d, yyyy')}
+- Duration: ${request.days_count} days
+- Reason: ${request.reason}
+
+${approved ? 'Your leave has been approved. Enjoy your time off!' : `Reason for rejection: ${comments || 'No specific reason provided'}`}
+
+Best regards,
+Your Manager via Aliotte Leave Request`;
+
+          await SendEmail({
+            to: request.employee_email,
+            subject: emailSubject,
+            body: emailBody
+          });
+
+          setAlert({
+            type: 'success',
+            message: `Leave request ${approved ? 'approved' : 'rejected'} and employee notified via email.`
+          });
+        } catch (emailError) {
+          console.error("Email sending failed:", emailError);
+          setAlert({
+            type: 'success',
+            message: `Leave request ${approved ? 'approved' : 'rejected'}. Email notification failed, please inform the employee manually.`
+          });
+        }
+      } else {
+        setAlert({
+          type: 'success',
+          message: `Leave request ${approved ? 'approved' : 'rejected'}. Please inform the employee manually.`
+        });
+      }
+
+      loadData(); // Refresh the list
+
+    } catch (error) {
+      console.error("Error processing approval:", error);
+      setAlert({
+        type: 'error',
+        message: `Failed to process approval: ${error.message || 'Please try again.'}`
+      });
+    }
+
+    setProcessingIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(requestId);
+      return newSet;
+    });
+  };
+
+  const pendingRequests = requests.filter(r => r.status === 'pending');
+  const processedRequests = requests.filter(r => r.status !== 'pending');
+
+  return (
+    <PermissionGuard requireAdmin={true}>
+      <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
+        <div className="flex items-center gap-4">
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="icon" className="rounded-xl">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Approve Leave Requests</h1>
+            <p className="text-slate-600 font-medium">Review and approve pending leave requests</p>
+          </div>
+        </div>
+
+        {alert && (
+          <Alert className={
+            alert.type === 'success' ? 'border-emerald-200 bg-emerald-50' : 
+            alert.type === 'error' ? 'border-red-200 bg-red-50' : 
+            'border-blue-200 bg-blue-50'
+          }>
+            <AlertDescription className={
+              alert.type === 'success' ? 'text-emerald-700' : 
+              alert.type === 'error' ? 'text-red-700' : 
+              'text-blue-700'
+            }>
+              {alert.message}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-8">
+          {/* Pending Requests */}
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              Pending Approval ({pendingRequests.length})
+            </h2>
+            
+            {isLoading ? (
+              <div className="grid gap-4">
+                {Array(3).fill(0).map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-4 bg-slate-200 rounded w-3/4 mb-4"></div>
+                      <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : pendingRequests.length === 0 ? (
+              <Card className="bg-white border-slate-200">
+                <CardContent className="p-8 text-center">
+                  <CheckCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500 font-medium">No pending requests</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {pendingRequests.map((request) => (
+                  <Card key={request.id} className="bg-white border-slate-200 shadow-lg">
+                    <CardHeader className="border-b border-slate-100">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <UserIcon className="w-5 h-5 text-indigo-600" />
+                            {request.employee_name}
+                          </CardTitle>
+                          <p className="text-sm text-slate-500 mt-1">{request.department}</p>
+                        </div>
+                        <Badge className={`${statusColors[request.status]} border`}>
+                          {request.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm font-medium text-slate-500">Start Date</p>
+                          <p className="font-semibold">{format(new Date(request.start_date), 'MMM d, yyyy')}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-500">End Date</p>
+                          <p className="font-semibold">{format(new Date(request.end_date), 'MMM d, yyyy')}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-500">Duration</p>
+                          <p className="font-semibold">{request.days_count} days</p>
+                        </div>
+                      </div>
+                      <div className="mb-6">
+                        <p className="text-sm font-medium text-slate-500 mb-2">Reason</p>
+                        <p className="text-slate-700">{request.reason}</p>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={() => handleApproval(request.id, true)}
+                          disabled={processingIds.has(request.id)}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Approve
+                        </Button>
+                        <Button
+                          onClick={() => handleApproval(request.id, false)}
+                          disabled={processingIds.has(request.id)}
+                          variant="destructive"
+                          className="flex-1"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Reject
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Processed Requests */}
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-slate-600" />
+              Recent Processed ({processedRequests.slice(0, 10).length})
+            </h2>
+            
+            <div className="grid gap-3">
+              {processedRequests.slice(0, 10).map((request) => (
+                <Card key={request.id} className="bg-slate-50 border-slate-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-slate-900">{request.employee_name}</p>
+                        <p className="text-sm text-slate-600">
+                          {format(new Date(request.start_date), 'MMM d')} - {format(new Date(request.end_date), 'MMM d')} 
+                          ({request.days_count} days)
+                        </p>
+                      </div>
+                      <Badge className={`${statusColors[request.status]} border`}>
+                        {request.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </PermissionGuard>
+  );
+}
