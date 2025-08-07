@@ -1,1 +1,121 @@
+import React, { useState } from 'react';
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UserPlus, Loader2 } from "lucide-react";
 
+const departments = ["Engineering", "Marketing", "Sales", "HR", "Finance", "Operations", "Design", "Legal"];
+
+export default function EmployeeForm({ onSubmit, isSubmitting }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    department: '',
+    manager_email: '',
+    employee_id: ''
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({...prev, [field]: value}));
+  };
+
+  return (
+    <Card className="bg-white border-slate-200 shadow-lg">
+      <CardHeader className="border-b border-slate-100">
+        <CardTitle className="flex items-center gap-2">
+          <UserPlus className="w-5 h-5 text-blue-600" />
+          Add New Employee
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="John Doe"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="employee_id">Employee ID</Label>
+              <Input
+                id="employee_id"
+                value={formData.employee_id}
+                onChange={(e) => handleInputChange('employee_id', e.target.value)}
+                placeholder="EMP001"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email Address</Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              placeholder="john.doe@company.com"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              <Select onValueChange={(value) => handleInputChange('department', value)} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manager_email">Manager Email</Label>
+              <Input
+                id="manager_email"
+                type="email"
+                value={formData.manager_email}
+                onChange={(e) => handleInputChange('manager_email', e.target.value)}
+                placeholder="manager@company.com"
+                required
+              />
+            </div>
+          </div>
+
+          <Button 
+            type="submit" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-all duration-200"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Adding Employee...
+              </>
+            ) : (
+              'Add Employee'
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
