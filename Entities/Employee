@@ -1,0 +1,45 @@
+{
+  "name": "Employee",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Full name of the employee"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "Employee email address"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "Engineering",
+        "Marketing",
+        "Sales",
+        "HR",
+        "Finance",
+        "Operations",
+        "Design",
+        "Legal"
+      ],
+      "description": "Department the employee belongs to"
+    },
+    "manager_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email of the employee's manager who approves leave requests"
+    },
+    "employee_id": {
+      "type": "string",
+      "description": "Unique employee identifier"
+    }
+  },
+  "required": [
+    "name",
+    "email",
+    "department",
+    "manager_email",
+    "employee_id"
+  ]
+}
