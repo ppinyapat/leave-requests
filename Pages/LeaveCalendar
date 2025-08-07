@@ -1,1 +1,51 @@
+import React, { useState, useEffect } from "react";
+import { LeaveRequest } from "@/entities/LeaveRequest";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
+import LeaveCalendar from "../components/calendar/LeaveCalendar";
+
+export default function LeaveCalendarPage() {
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadLeaveRequests();
+  }, []);
+
+  const loadLeaveRequests = async () => {
+    try {
+      const requests = await LeaveRequest.filter({ status: 'approved' });
+      setLeaveRequests(requests);
+    } catch (error) {
+      console.error("Error loading leave requests:", error);
+    }
+    setIsLoading(false);
+  };
+
+  return (
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex items-center gap-4">
+        <Link to={createPageUrl("Dashboard")}>
+          <Button variant="outline" size="icon" className="rounded-xl">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Leave Calendar</h1>
+          <p className="text-slate-600 font-medium">Visual overview of all approved leave requests</p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="animate-pulse">
+          <div className="h-96 bg-slate-200 rounded-xl"></div>
+        </div>
+      ) : (
+        <LeaveCalendar leaveRequests={leaveRequests} />
+      )}
+    </div>
+  );
+}
