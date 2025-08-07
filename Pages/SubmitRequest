@@ -1,1 +1,88 @@
 
+import React, { useState, useEffect } from "react";
+import { Employee } from "@/entities/Employee";
+import { LeaveRequest } from "@/entities/LeaveRequest";
+import { User } from "@/entities/User";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { differenceInDays, startOfDay, format, addDays } from "date-fns";
+
+import RequestForm from "../components/requests/RequestForm";
+
+export default function SubmitRequest() {
+  const [employees, setEmployees] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [employeesData, usersData] = await Promise.all([
+        Employee.list(),
+        User.list()
+      ]);
+      setEmployees(employeesData);
+      setUsers(usersData);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    }
+    setIsLoading(false);
+  };
+
+  const validateBusinessRules = async (requestData) => {
+    const startDate = new Date(requestData.start_date);
+    const endDate = new Date(requestData.end_date);
+    
+    // Check blackout dates (single digit days 1-9 and day before each, plus promotion days)
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const checkDate = new Date(d);
+      const day = checkDate.getDate();
+      const month = checkDate.getMonth() + 1; // JavaScript months are 0-indexed
+      
+      // Single digit days (1-9) and day before (so block 1-10)
+      if (day <= 10) {
+        return {
+          approved: false,
+          reason: `Leave not allowed on ${format(checkDate, 'MMM d')} (single digit day or day before restriction)`
+        };
+      }
+      
+      // Promotion days and day before
+      const promotionDates = [
+        { month: 2, day: 2 }, // Feb 2
+        { month: 3, day: 3 }, // Mar 3
+        { month: 4, day: 4 }, // Apr 4
+      ];
+      
+      for (const promo of promotionDates) {
+        if (month === promo.month && (day === promo.day || day === promo.day - 1)) {
+          return {
+            approved: false,
+            reason: `Leave not allowed on ${format(checkDate, 'MMM d')} (promotion day or day before)`
+          };
+        }
+      }
+    }
+
+    // Check monthly limit (current month)
+    const currentMonth = startDate.getMonth();
+    const currentYear = startDate.getFullYear();
+    
+    const monthlyRequests = await LeaveRequest.filter({
+      employee_email: requestData.employee_email,
+      status: 'approved'
+    });
+
+    let currentMonthDays = 0;
+    monthlyRequests.forEach(req => {
+      const reqStart = new Date(req.start_date);
+      if (reqStart.getMonth() === currentMonth && reqStart.getFullYear() === currentYear) {
+
