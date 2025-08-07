@@ -1,1 +1,65 @@
+import React, { useState, useEffect } from 'react';
+import { User } from "@/entities/User";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Shield, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
+export default function PermissionGuard({ children, requireAdmin = false }) {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasPermission, setHasPermission] = useState(false);
+
+  useEffect(() => {
+    checkPermissions();
+  }, [requireAdmin]);
+
+  const checkPermissions = async () => {
+    try {
+      const user = await User.me();
+      setCurrentUser(user);
+      
+      if (requireAdmin) {
+        setHasPermission(user.role === 'admin');
+      } else {
+        setHasPermission(true);
+      }
+    } catch (error) {
+      console.error("Permission check failed:", error);
+      setHasPermission(false);
+    }
+    setIsLoading(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (!hasPermission) {
+    return (
+      <div className="p-6 md:p-8 max-w-2xl mx-auto">
+        <Alert className="border-red-200 bg-red-50">
+          <Shield className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-700">
+            You don't have permission to access this page. {requireAdmin ? 'Administrator access required.' : 'Please contact your administrator.'}
+          </AlertDescription>
+        </Alert>
+        <div className="mt-6 text-center">
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" className="gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return children;
+}
