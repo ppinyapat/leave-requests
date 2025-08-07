@@ -1,0 +1,1 @@
+This repository contains the code for Aliotte Store's internal leave request system. It's designed to provide a streamlined, centralized platform for all staff members to easily submit, track, and manage their leave applications. The system also enables management to efficiently review, approve, and maintain records of all types of employee leave.
