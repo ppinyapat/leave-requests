@@ -1,1 +1,88 @@
 
+import React, { useState, useEffect } from "react";
+import { Employee } from "@/entities/Employee";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+
+import EmployeeForm from "../components/employees/EmployeeForm";
+import EmployeeList from "../components/employees/EmployeeList";
+import PermissionGuard from "../components/auth/PermissionGuard";
+
+export default function ManageEmployees() {
+  const [employees, setEmployees] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      const data = await Employee.list("-created_date");
+      setEmployees(data);
+    } catch (error) {
+      console.error("Error loading employees:", error);
+    }
+    setIsLoading(false);
+  };
+
+  const handleSubmit = async (formData) => {
+    setIsSubmitting(true);
+    try {
+      await Employee.create(formData);
+      setSubmitStatus({
+        type: 'success',
+        message: `Employee ${formData.name} added successfully!`
+      });
+      loadEmployees(); // Refresh the list
+    } catch (error) {
+      console.error("Error adding employee:", error);
+      setSubmitStatus({
+        type: 'error',
+        message: 'Failed to add employee. Please check if email or employee ID already exists.'
+      });
+    }
+    setIsSubmitting(false);
+  };
+
+  return (
+    <PermissionGuard requireAdmin={true}>
+      <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
+        <div className="flex items-center gap-4">
+          <Link to={createPageUrl("Dashboard")}>
+            <Button variant="outline" size="icon" className="rounded-xl">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Manage Employees</h1>
+            <p className="text-slate-600 font-medium">Add and view employees in the Aliotte Leave Request system</p>
+          </div>
+        </div>
+
+        {submitStatus && (
+          <Alert className={submitStatus.type === 'success' ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}>
+            {submitStatus.type === 'success' ? 
+              <CheckCircle className="h-4 w-4 text-emerald-600" /> : 
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            }
+            <AlertDescription className={submitStatus.type === 'success' ? 'text-emerald-700' : 'text-red-700'}>
+              {submitStatus.message}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <EmployeeForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+          <EmployeeList employees={employees} isLoading={isLoading} />
+        </div>
+      </div>
+    </PermissionGuard>
+  );
+}
+
