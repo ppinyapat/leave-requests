@@ -18,7 +18,10 @@ let mockData = {
             days_count: 3,
             reason: 'Personal vacation',
             status: 'approved',
-            created_date: '2024-01-10'
+            created_date: '2024-01-10',
+            approval_token: 'token_123',
+            approved_by: 'pinyapat.prw@gmail.com',
+            approved_date: '2024-01-12'
         },
         {
             id: 2,
@@ -29,13 +32,20 @@ let mockData = {
             days_count: 3,
             reason: 'Family event',
             status: 'pending',
-            created_date: '2024-01-12'
+            created_date: '2024-01-12',
+            approval_token: 'token_456'
         }
     ],
     currentUser: {
         name: 'Admin User',
         email: 'admin@aliotte.com',
         role: 'admin'
+    },
+    // Email configuration
+    emailSettings: {
+        managerEmail: 'pinyapat.prw@gmail.com',
+        companyName: 'Aliotte Store',
+        approvalBaseUrl: window.location.origin + window.location.pathname
     }
 };
 
@@ -48,6 +58,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupEventListeners();
     loadDashboard();
+    
+    // Check for approval token in URL
+    checkForApprovalToken();
 });
 
 function initializeApp() {
@@ -89,6 +102,74 @@ function setupEventListeners() {
     // Handle hash changes
     window.addEventListener('hashchange', handleHashChange);
     handleHashChange();
+}
+
+function checkForApprovalToken() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const action = urlParams.get('action');
+    
+    if (token && action) {
+        handleEmailApproval(token, action);
+    }
+}
+
+function handleEmailApproval(token, action) {
+    const request = mockData.requests.find(r => r.approval_token === token);
+    
+    if (!request) {
+        showNotification('error', 'Invalid approval link');
+        return;
+    }
+    
+    if (request.status !== 'pending') {
+        showNotification('info', 'This request has already been processed');
+        return;
+    }
+    
+    if (action === 'approve') {
+        request.status = 'approved';
+        request.approved_by = mockData.emailSettings.managerEmail;
+        request.approved_date = new Date().toISOString().split('T')[0];
+        showNotification('success', `Leave request for ${request.employee_name} has been approved!`);
+    } else if (action === 'reject') {
+        request.status = 'rejected';
+        request.rejected_by = mockData.emailSettings.managerEmail;
+        request.rejected_date = new Date().toISOString().split('T')[0];
+        showNotification('success', `Leave request for ${request.employee_name} has been rejected.`);
+    }
+    
+    // Clear URL parameters
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    // Reload dashboard to show updated status
+    if (currentPage === 'dashboard') {
+        loadDashboard();
+    }
+}
+
+function showNotification(type, message) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        'bg-blue-500 text-white'
+    }`;
+    notification.innerHTML = `
+        <div class="flex items-center gap-2">
+            <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'info'}" class="w-5 h-5"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    lucide.createIcons();
+    
+    // Remove notification after 5 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
 }
 
 function handleHashChange() {
@@ -188,6 +269,7 @@ function loadRecentRequests(requests) {
                 <div>
                     <p class="font-semibold text-slate-900">${request.employee_name}</p>
                     <p class="text-sm text-slate-500">${request.start_date} - ${request.end_date} (${request.days_count} days)</p>
+                    ${request.approved_by ? `<p class="text-xs text-emerald-600">Approved by ${request.approved_by}</p>` : ''}
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -278,6 +360,9 @@ function handleRequestSubmit(e) {
     showValidationResult(validation.approved ? 'success' : 'error', validation.reason);
     
     if (validation.approved) {
+        // Generate approval token
+        const approvalToken = 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
         // Add request to mock data
         const newRequest = {
             id: mockData.requests.length + 1,
@@ -288,19 +373,62 @@ function handleRequestSubmit(e) {
             days_count: calculateDays(formData.start_date, formData.end_date),
             reason: formData.reason,
             status: 'pending',
-            created_date: new Date().toISOString().split('T')[0]
+            created_date: new Date().toISOString().split('T')[0],
+            approval_token: approvalToken
         };
         
         mockData.requests.push(newRequest);
+        
+        // Send approval email
+        sendApprovalEmail(newRequest);
         
         // Reset form
         e.target.reset();
         
         // Show success message
         setTimeout(() => {
-            showValidationResult('success', 'Request submitted successfully!');
+            showValidationResult('success', 'Request submitted successfully! Approval email sent to manager.');
         }, 1000);
     }
+}
+
+function sendApprovalEmail(request) {
+    const approvalUrl = `${mockData.emailSettings.approvalBaseUrl}?token=${request.approval_token}`;
+    
+    // Create email content
+    const emailContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #4f46e5;">Leave Request Approval Required</h2>
+            <p>Hello,</p>
+            <p>A new leave request has been submitted and requires your approval:</p>
+            
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">Request Details:</h3>
+                <p><strong>Employee:</strong> ${request.employee_name}</p>
+                <p><strong>Email:</strong> ${request.employee_email}</p>
+                <p><strong>Dates:</strong> ${formatDate(new Date(request.start_date))} - ${formatDate(new Date(request.end_date))}</p>
+                <p><strong>Duration:</strong> ${request.days_count} days</p>
+                <p><strong>Reason:</strong> ${request.reason}</p>
+            </div>
+            
+            <div style="margin: 30px 0;">
+                <a href="${approvalUrl}&action=approve" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-right: 10px;">Approve Request</a>
+                <a href="${approvalUrl}&action=reject" style="background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Reject Request</a>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 14px;">
+                This email was sent from the Aliotte Leave Request System.<br>
+                If you have any questions, please contact the system administrator.
+            </p>
+        </div>
+    `;
+    
+    // In a real application, you would send this email using a service like SendGrid, Mailgun, or your own SMTP server
+    console.log('Email would be sent to:', mockData.emailSettings.managerEmail);
+    console.log('Email content:', emailContent);
+    
+    // For demo purposes, show a notification
+    showNotification('success', `Approval email sent to ${mockData.emailSettings.managerEmail}`);
 }
 
 function validateBusinessRules(requestData) {
@@ -533,7 +661,7 @@ function loadApproveRequests() {
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-slate-900">${request.employee_name}</h3>
-                        <p class="text-sm text-slate-500">${request.email}</p>
+                        <p class="text-sm text-slate-500">${request.employee_email}</p>
                         <div class="flex items-center gap-4 mt-2">
                             <span class="flex items-center gap-1 text-sm text-slate-600">
                                 <i data-lucide="calendar" class="w-4 h-4"></i>
@@ -563,6 +691,10 @@ function loadApproveRequests() {
                     <i data-lucide="x" class="w-4 h-4"></i>
                     Reject
                 </button>
+                <button onclick="sendApprovalEmail(${JSON.stringify(request).replace(/"/g, '&quot;')})" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                    <i data-lucide="mail" class="w-4 h-4"></i>
+                    Send Email
+                </button>
             </div>
         </div>
     `).join('');
@@ -574,8 +706,10 @@ function approveRequest(requestId) {
     const request = mockData.requests.find(r => r.id === requestId);
     if (request) {
         request.status = 'approved';
+        request.approved_by = mockData.emailSettings.managerEmail;
+        request.approved_date = new Date().toISOString().split('T')[0];
         loadApproveRequests();
-        alert('Request approved successfully!');
+        showNotification('success', 'Request approved successfully!');
     }
 }
 
@@ -583,8 +717,10 @@ function rejectRequest(requestId) {
     const request = mockData.requests.find(r => r.id === requestId);
     if (request) {
         request.status = 'rejected';
+        request.rejected_by = mockData.emailSettings.managerEmail;
+        request.rejected_date = new Date().toISOString().split('T')[0];
         loadApproveRequests();
-        alert('Request rejected');
+        showNotification('success', 'Request rejected');
     }
 }
 
