@@ -395,37 +395,94 @@ function handleRequestSubmit(e) {
 function sendApprovalEmail(request) {
     const approvalUrl = `${mockData.emailSettings.approvalBaseUrl}?token=${request.approval_token}`;
     
-    // Initialize EmailJS
-    emailjs.init("YOUR_EMAILJS_PUBLIC_KEY"); // You'll need to replace this with your actual EmailJS public key
+    // Create email content
+    const emailSubject = `Leave Request Approval Required - ${request.employee_name}`;
+    const emailBody = `
+Leave Request Approval Required
+
+Hello,
+
+A new leave request has been submitted and requires your approval:
+
+Employee: ${request.employee_name}
+Email: ${request.employee_email}
+Dates: ${formatDate(new Date(request.start_date))} - ${formatDate(new Date(request.end_date))}
+Duration: ${request.days_count} days
+Reason: ${request.reason}
+
+To approve this request, click: ${approvalUrl}&action=approve
+To reject this request, click: ${approvalUrl}&action=reject
+
+This email was sent from the Aliotte Leave Request System.
+If you have any questions, please contact the system administrator.
+    `;
     
-    // Email template parameters
-    const templateParams = {
-        to_email: mockData.emailSettings.managerEmail,
-        to_name: "Manager",
-        employee_name: request.employee_name,
-        employee_email: request.employee_email,
-        start_date: formatDate(new Date(request.start_date)),
-        end_date: formatDate(new Date(request.end_date)),
-        days_count: request.days_count,
-        reason: request.reason,
-        approve_url: `${approvalUrl}&action=approve`,
-        reject_url: `${approvalUrl}&action=reject`,
-        company_name: mockData.emailSettings.companyName
-    };
+    // Use mailto: link to open user's email client
+    const mailtoLink = `mailto:${mockData.emailSettings.managerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
     
-    // Send email using EmailJS
-    emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
-        .then(function(response) {
-            console.log('Email sent successfully:', response);
-            showNotification('success', `Approval email sent to ${mockData.emailSettings.managerEmail}`);
-        }, function(error) {
-            console.log('Email failed to send:', error);
-            showNotification('error', 'Failed to send email. Please try again.');
-        });
+    // Open email client
+    window.open(mailtoLink, '_blank');
     
-    // Fallback: Show email content in console for testing
-    console.log('Email would be sent to:', mockData.emailSettings.managerEmail);
-    console.log('Approval URL:', approvalUrl);
+    // Show notification
+    showNotification('success', `Email client opened for ${mockData.emailSettings.managerEmail}. Please send the email manually.`);
+    
+    // Also show the email content in a modal for easy copying
+    showEmailModal(emailSubject, emailBody, approvalUrl);
+}
+
+function showEmailModal(subject, body, approvalUrl) {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-slate-900">Email Content</h3>
+                <button onclick="this.closest('.fixed').remove()" class="text-slate-500 hover:text-slate-700">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">To:</label>
+                    <input type="text" value="${mockData.emailSettings.managerEmail}" class="w-full px-3 py-2 border border-slate-300 rounded-lg" readonly>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Subject:</label>
+                    <input type="text" value="${subject}" class="w-full px-3 py-2 border border-slate-300 rounded-lg" readonly>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Body:</label>
+                    <textarea rows="15" class="w-full px-3 py-2 border border-slate-300 rounded-lg" readonly>${body}</textarea>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <button onclick="copyToClipboard('${subject}', '${body.replace(/'/g, "\\'")}')" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                        Copy to Clipboard
+                    </button>
+                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-slate-300 text-slate-700 rounded-lg hover:bg-slate-400">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    lucide.createIcons();
+}
+
+function copyToClipboard(subject, body) {
+    const emailContent = `To: ${mockData.emailSettings.managerEmail}\nSubject: ${subject}\n\n${body}`;
+    
+    navigator.clipboard.writeText(emailContent).then(() => {
+        showNotification('success', 'Email content copied to clipboard!');
+    }).catch(() => {
+        showNotification('error', 'Failed to copy to clipboard');
+    });
 }
 
 function validateBusinessRules(requestData) {
