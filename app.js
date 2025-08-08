@@ -349,9 +349,9 @@ function handleRequestSubmit(e) {
         reason: document.getElementById('reason').value
     };
     
-    // Validate form
-    if (!formData.employee_email || !formData.start_date || !formData.end_date || !formData.reason) {
-        showValidationResult('error', 'Please fill in all fields');
+    // Validate form (reason is optional)
+    if (!formData.employee_email || !formData.start_date || !formData.end_date) {
+        showValidationResult('error', 'Please fill in employee, start date, and end date');
         return;
     }
     
@@ -371,7 +371,7 @@ function handleRequestSubmit(e) {
             start_date: formData.start_date,
             end_date: formData.end_date,
             days_count: calculateDays(formData.start_date, formData.end_date),
-            reason: formData.reason,
+            reason: formData.reason || 'No reason provided',
             status: 'pending',
             created_date: new Date().toISOString().split('T')[0],
             approval_token: approvalToken
@@ -489,20 +489,8 @@ function validateBusinessRules(requestData) {
     const startDate = new Date(requestData.start_date);
     const endDate = new Date(requestData.end_date);
     
-    // Check blackout dates (2/2 to 12/12 of every year)
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        const checkDate = new Date(d);
-        const day = checkDate.getDate();
-        const month = checkDate.getMonth() + 1;
-        
-        // Blackout period: February 2nd to December 12th of every year
-        if ((month === 2 && day >= 2) || (month > 2 && month < 12) || (month === 12 && day <= 12)) {
-            return {
-                approved: false,
-                reason: `Leave not allowed on ${formatDate(checkDate)} (blackout period: Feb 2 - Dec 12)`
-            };
-        }
-    }
+    // No blackout date restrictions - employees can take leave any day
+    // Removed all date restrictions
     
     // Check monthly limit
     const currentMonth = startDate.getMonth();
