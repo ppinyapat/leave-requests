@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aliotte Leave Request</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-transition { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-2px); }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div class="min-h-screen flex w-full">
+        <!-- Sidebar -->
+        <div id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col sidebar-transition">
+            <!-- Header -->
+            <div class="border-b border-slate-100 p-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
+                        <i data-lucide="calendar-days" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-slate-900 text-lg">Aliotte</h2>
+                        <p class="text-xs text-slate-500 font-medium">Leave Request</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="flex-1 p-3">
+                <div class="space-y-1">
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 py-3">
+                        Navigation
+                    </div>
+                    <nav class="space-y-1">
+                        <a href="#dashboard" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl mx-1 transition-all duration-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900" data-page="dashboard">
+                            <i data-lucide="home" class="w-5 h-5"></i>
+                            <span class="font-medium">Dashboard</span>
+                        </a>
+                        <a href="#submit-request" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl mx-1 transition-all duration-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900" data-page="submit-request">
+                            <i data-lucide="file-text" class="w-5 h-5"></i>
+                            <span class="font-medium">Submit Request</span>
+                        </a>
+                        <a href="#leave-calendar" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl mx-1 transition-all duration-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900" data-page="leave-calendar">
+                            <i data-lucide="calendar" class="w-5 h-5"></i>
+                            <span class="font-medium">Leave Calendar</span>
+                        </a>
+                        <a href="#manage-employees" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl mx-1 transition-all duration-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900 admin-only" data-page="manage-employees">
+                            <i data-lucide="users" class="w-5 h-5"></i>
+                            <span class="font-medium">Manage Employees</span>
+                        </a>
+                        <a href="#approve-requests" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl mx-1 transition-all duration-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900 admin-only" data-page="approve-requests">
+                            <i data-lucide="calendar-days" class="w-5 h-5"></i>
+                            <span class="font-medium">Approve Requests</span>
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- Admin Panel -->
+                <div class="admin-only mt-6">
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 py-3">
+                        Admin Panel
+                    </div>
+                    <div class="px-3 py-2 space-y-2">
+                        <div class="flex items-center gap-2 text-sm">
+                            <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                            <span class="text-slate-600">Full Access</span>
+                        </div>
+                        <p class="text-xs text-slate-500">
+                            Invite users via the Users tab in the main navigation
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="border-t border-slate-100 p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
+                        <span class="text-slate-600 font-semibold text-sm" id="user-initial">U</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-slate-900 text-sm truncate" id="user-name">User</p>
+                        <p class="text-xs text-slate-500 truncate" id="user-role">Employee</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col">
+            <!-- Mobile Header -->
+            <header class="bg-white border-b border-slate-200 px-6 py-4 lg:hidden">
+                <div class="flex items-center gap-4">
+                    <button id="sidebar-toggle" class="hover:bg-slate-100 p-2 rounded-lg transition-colors duration-200">
+                        <i data-lucide="menu" class="w-5 h-5"></i>
+                    </button>
+                    <h1 class="text-xl font-bold text-slate-900">Aliotte Leave Request</h1>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="flex-1 overflow-auto bg-slate-50">
+                <!-- Dashboard Page -->
+                <div id="dashboard-page" class="page-content p-6 md:p-8 space-y-8">
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-bold text-slate-900" id="dashboard-title">My Leave Dashboard</h1>
+                        <p class="text-slate-600 font-medium" id="dashboard-subtitle">Track your leave requests and remaining balance</p>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="stats-card p-6 bg-white border-slate-200 rounded-lg hover:shadow-lg transition-all duration-300 card-hover">
+                            <div class="flex items-start justify-between">
+                                <div class="space-y-3">
+                                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Pending Requests</p>
+                                    <div>
+                                        <p class="text-3xl font-bold text-slate-900" id="pending-count">0</p>
+                                        <p class="text-sm text-slate-500 mt-1">Awaiting approval</p>
+                                    </div>
+                                </div>
+                                <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-sm">
+                                    <i data-lucide="clock" class="w-6 h-6 text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stats-card p-6 bg-white border-slate-200 rounded-lg hover:shadow-lg transition-all duration-300 card-hover">
+                            <div class="flex items-start justify-between">
+                                <div class="space-y-3">
+                                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Approved This Month</p>
+                                    <div>
+                                        <p class="text-3xl font-bold text-slate-900" id="approved-count">0</p>
+                                        <p class="text-sm text-slate-500 mt-1">Successfully processed</p>
+                                    </div>
+                                </div>
+                                <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-sm">
+                                    <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stats-card p-6 bg-white border-slate-200 rounded-lg hover:shadow-lg transition-all duration-300 card-hover">
+                            <div class="flex items-start justify-between">
+                                <div class="space-y-3">
+                                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider" id="employees-title">Your Requests</p>
+                                    <div>
+                                        <p class="text-3xl font-bold text-slate-900" id="employees-count">0</p>
+                                        <p class="text-sm text-slate-500 mt-1" id="employees-subtitle">All time</p>
+                                    </div>
+                                </div>
+                                <div class="p-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-sm">
+                                    <i data-lucide="users" class="w-6 h-6 text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stats-card p-6 bg-white border-slate-200 rounded-lg hover:shadow-lg transition-all duration-300 card-hover">
+                            <div class="flex items-start justify-between">
+                                <div class="space-y-3">
+                                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">This Month</p>
+                                    <div>
+                                        <p class="text-3xl font-bold text-slate-900" id="month-count">0</p>
+                                        <p class="text-sm text-slate-500 mt-1">Leave requests</p>
+                                    </div>
+                                </div>
+                                <div class="p-4 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-sm">
+                                    <i data-lucide="calendar-days" class="w-6 h-6 text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Content Grid -->
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        <div class="xl:col-span-2 space-y-8">
+                            <!-- Recent Requests -->
+                            <div class="bg-white border border-slate-200 rounded-xl p-6">
+                                <h2 class="text-xl font-bold text-slate-900 mb-4">Recent Requests</h2>
+                                <div id="recent-requests" class="space-y-4">
+                                    <!-- Recent requests will be populated here -->
+                                </div>
+                            </div>
+                            
+                            <!-- Calendar Section -->
+                            <div>
+                                <div class="flex items-center justify-between mb-4">
+                                    <h2 class="text-xl font-bold text-slate-900">Leave Calendar</h2>
+                                    <a href="#leave-calendar" class="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        Full View
+                                    </a>
+                                </div>
+                                <div id="calendar-preview" class="bg-white border border-slate-200 rounded-xl p-6">
+                                    <!-- Calendar will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <!-- Policy Reminder -->
+                            <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white">
+                                <h3 class="text-xl font-bold mb-2">Leave Policy Reminder</h3>
+                                <div class="space-y-2 text-indigo-100">
+                                    <p>• Maximum 4 days leave per month</p>
+                                    <p>• No department conflicts allowed</p>
+                                    <p>• Blackout: Single digit days & day before</p>
+                                    <p>• Promotion days: Feb 2, Mar 3, Apr 4</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Quick Actions (Admin Only) -->
+                            <div class="admin-only bg-white border border-slate-200 rounded-xl p-6">
+                                <h3 class="text-lg font-bold text-slate-900 mb-4">Quick Actions</h3>
+                                <div class="space-y-3">
+                                    <a href="#manage-employees" class="block">
+                                        <button class="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                            <i data-lucide="users" class="w-4 h-4"></i>
+                                            Manage Employees
+                                        </button>
+                                    </a>
+                                    <a href="#approve-requests" class="block">
+                                        <button class="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                            <i data-lucide="calendar-days" class="w-4 h-4"></i>
+                                            Review Pending Requests
+                                        </button>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Request Page -->
+                <div id="submit-request-page" class="page-content hidden p-6 md:p-8 max-w-4xl mx-auto space-y-8">
+                    <div class="flex items-center gap-4">
+                        <a href="#dashboard" class="inline-flex items-center p-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        </a>
+                        <div>
+                            <h1 class="text-3xl font-bold text-slate-900">Submit Leave Request</h1>
+                            <p class="text-slate-600 font-medium">Request time off with automatic business rule validation</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Request Form -->
+                        <div class="bg-white border border-slate-200 rounded-xl p-6">
+                            <h2 class="text-xl font-bold text-slate-900 mb-6">Request Details</h2>
+                            <form id="request-form" class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Employee</label>
+                                    <select id="employee-select" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="">Select employee...</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-2">Start Date</label>
+                                        <input type="date" id="start-date" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-2">End Date</label>
+                                        <input type="date" id="end-date" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Reason</label>
+                                    <textarea id="reason" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Please provide a reason for your leave request..."></textarea>
+                                </div>
+                                
+                                <button type="submit" class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+                                    Submit Request
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Validation Results -->
+                        <div class="bg-white border border-slate-200 rounded-xl p-6">
+                            <h2 class="text-xl font-bold text-slate-900 mb-6">Validation Results</h2>
+                            <div id="validation-results" class="space-y-4">
+                                <!-- Validation results will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leave Calendar Page -->
+                <div id="leave-calendar-page" class="page-content hidden p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+                    <div class="flex items-center gap-4">
+                        <a href="#dashboard" class="inline-flex items-center p-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        </a>
+                        <div>
+                            <h1 class="text-3xl font-bold text-slate-900">Leave Calendar</h1>
+                            <p class="text-slate-600 font-medium">Visual overview of all approved leave requests</p>
+                        </div>
+                    </div>
+
+                    <div id="calendar-container" class="bg-white border border-slate-200 rounded-xl p-6">
+                        <!-- Calendar will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Manage Employees Page -->
+                <div id="manage-employees-page" class="page-content hidden p-6 md:p-8 max-w-6xl mx-auto space-y-8">
+                    <div class="flex items-center gap-4">
+                        <a href="#dashboard" class="inline-flex items-center p-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        </a>
+                        <div>
+                            <h1 class="text-3xl font-bold text-slate-900">Manage Employees</h1>
+                            <p class="text-slate-600 font-medium">Add and view employees in the Aliotte Leave Request system</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Employee Form -->
+                        <div class="bg-white border border-slate-200 rounded-xl p-6">
+                            <h2 class="text-xl font-bold text-slate-900 mb-6">Add New Employee</h2>
+                            <form id="employee-form" class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
+                                    <input type="text" id="employee-name" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                                    <input type="email" id="employee-email" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Employee ID</label>
+                                    <input type="text" id="employee-id" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Department</label>
+                                    <select id="employee-department" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="">Select department...</option>
+                                        <option value="Engineering">Engineering</option>
+                                        <option value="Marketing">Marketing</option>
+                                        <option value="Sales">Sales</option>
+                                        <option value="HR">HR</option>
+                                        <option value="Finance">Finance</option>
+                                    </select>
+                                </div>
+                                
+                                <button type="submit" class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+                                    Add Employee
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Employee List -->
+                        <div class="bg-white border border-slate-200 rounded-xl p-6">
+                            <h2 class="text-xl font-bold text-slate-900 mb-6">Employee List</h2>
+                            <div id="employee-list" class="space-y-4">
+                                <!-- Employee list will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Approve Requests Page -->
+                <div id="approve-requests-page" class="page-content hidden p-6 md:p-8 max-w-6xl mx-auto space-y-8">
+                    <div class="flex items-center gap-4">
+                        <a href="#dashboard" class="inline-flex items-center p-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        </a>
+                        <div>
+                            <h1 class="text-3xl font-bold text-slate-900">Approve Requests</h1>
+                            <p class="text-slate-600 font-medium">Review and approve pending leave requests</p>
+                        </div>
+                    </div>
+
+                    <div id="requests-container" class="space-y-6">
+                        <!-- Requests will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
