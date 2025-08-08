@@ -395,74 +395,55 @@ function handleRequestSubmit(e) {
 function sendApprovalEmail(request) {
     const approvalUrl = `${mockData.emailSettings.approvalBaseUrl}?token=${request.approval_token}`;
     
-    // Create email content
-    const emailContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #4f46e5;">Leave Request Approval Required</h2>
-            <p>Hello,</p>
-            <p>A new leave request has been submitted and requires your approval:</p>
-            
-            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="margin-top: 0;">Request Details:</h3>
-                <p><strong>Employee:</strong> ${request.employee_name}</p>
-                <p><strong>Email:</strong> ${request.employee_email}</p>
-                <p><strong>Dates:</strong> ${formatDate(new Date(request.start_date))} - ${formatDate(new Date(request.end_date))}</p>
-                <p><strong>Duration:</strong> ${request.days_count} days</p>
-                <p><strong>Reason:</strong> ${request.reason}</p>
-            </div>
-            
-            <div style="margin: 30px 0;">
-                <a href="${approvalUrl}&action=approve" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-right: 10px;">Approve Request</a>
-                <a href="${approvalUrl}&action=reject" style="background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Reject Request</a>
-            </div>
-            
-            <p style="color: #6b7280; font-size: 14px;">
-                This email was sent from the Aliotte Leave Request System.<br>
-                If you have any questions, please contact the system administrator.
-            </p>
-        </div>
-    `;
+    // Initialize EmailJS
+    emailjs.init("YOUR_EMAILJS_PUBLIC_KEY"); // You'll need to replace this with your actual EmailJS public key
     
-    // In a real application, you would send this email using a service like SendGrid, Mailgun, or your own SMTP server
+    // Email template parameters
+    const templateParams = {
+        to_email: mockData.emailSettings.managerEmail,
+        to_name: "Manager",
+        employee_name: request.employee_name,
+        employee_email: request.employee_email,
+        start_date: formatDate(new Date(request.start_date)),
+        end_date: formatDate(new Date(request.end_date)),
+        days_count: request.days_count,
+        reason: request.reason,
+        approve_url: `${approvalUrl}&action=approve`,
+        reject_url: `${approvalUrl}&action=reject`,
+        company_name: mockData.emailSettings.companyName
+    };
+    
+    // Send email using EmailJS
+    emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
+        .then(function(response) {
+            console.log('Email sent successfully:', response);
+            showNotification('success', `Approval email sent to ${mockData.emailSettings.managerEmail}`);
+        }, function(error) {
+            console.log('Email failed to send:', error);
+            showNotification('error', 'Failed to send email. Please try again.');
+        });
+    
+    // Fallback: Show email content in console for testing
     console.log('Email would be sent to:', mockData.emailSettings.managerEmail);
-    console.log('Email content:', emailContent);
-    
-    // For demo purposes, show a notification
-    showNotification('success', `Approval email sent to ${mockData.emailSettings.managerEmail}`);
+    console.log('Approval URL:', approvalUrl);
 }
 
 function validateBusinessRules(requestData) {
     const startDate = new Date(requestData.start_date);
     const endDate = new Date(requestData.end_date);
     
-    // Check blackout dates (single digit days 1-9 and day before each, plus promotion days)
+    // Check blackout dates (2/2 to 12/12 of every year)
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const checkDate = new Date(d);
         const day = checkDate.getDate();
         const month = checkDate.getMonth() + 1;
         
-        // Single digit days (1-9) and day before (so block 1-10)
-        if (day <= 10) {
+        // Blackout period: February 2nd to December 12th of every year
+        if ((month === 2 && day >= 2) || (month > 2 && month < 12) || (month === 12 && day <= 12)) {
             return {
                 approved: false,
-                reason: `Leave not allowed on ${formatDate(checkDate)} (single digit day or day before restriction)`
+                reason: `Leave not allowed on ${formatDate(checkDate)} (blackout period: Feb 2 - Dec 12)`
             };
-        }
-        
-        // Promotion days and day before
-        const promotionDates = [
-            { month: 2, day: 2 }, // Feb 2
-            { month: 3, day: 3 }, // Mar 3
-            { month: 4, day: 4 }, // Apr 4
-        ];
-        
-        for (const promo of promotionDates) {
-            if (month === promo.month && (day === promo.day || day === promo.day - 1)) {
-                return {
-                    approved: false,
-                    reason: `Leave not allowed on ${formatDate(checkDate)} (promotion day or day before)`
-                };
-            }
         }
     }
     
