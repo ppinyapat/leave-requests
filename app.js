@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // Google Sheets configuration
 const GOOGLE_SHEET_ID = '1DvlEFNwbEbbzEGkTgrRxY_GdYls698SvR5PsJyu_oIc';
-const GOOGLE_API_KEY = 'YOUR_GOOGLE_API_KEY'; // You'll need to get this from Google Cloud Console
+const GOOGLE_API_KEY = 'AIzaSyBId2JyCStH-rwZCz2zoZOVOhsdYtlAWpY'; // You'll need to get this from Google Cloud Console
 
 // Data storage with Google Sheets integration
 let appData = {
@@ -15,7 +15,7 @@ let appData = {
         role: 'admin'
     },
     emailSettings: {
-        managerEmail: 'pinyapat.prw@gmail.com',
+        managerEmail: 'pinyapat.dev@gmail.com',
         companyName: 'Aliotte Store',
         approvalBaseUrl: window.location.origin + window.location.pathname
     }
@@ -517,7 +517,7 @@ If you have any questions, please contact the system administrator.
     
     // Send email using EmailJS (you need to set this up)
     if (typeof emailjs !== 'undefined') {
-        emailjs.init("YOUR_EMAILJS_PUBLIC_KEY");
+        emailjs.init("otAmILp6ywQ-4GW8R");
         
         const templateParams = {
             to_email: appData.emailSettings.managerEmail,
@@ -533,7 +533,7 @@ If you have any questions, please contact the system administrator.
             company_name: appData.emailSettings.companyName
         };
         
-        emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
+        emailjs.send('service_74tlc53', 'template_tqyri7f', templateParams)
             .then(function(response) {
                 console.log('Email sent successfully:', response);
                 showNotification('success', `Approval email sent to ${appData.emailSettings.managerEmail}`);
