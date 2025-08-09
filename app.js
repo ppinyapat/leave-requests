@@ -829,46 +829,62 @@ function loadLeaveCalendar() {
 function generateFullCalendar(requests) {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     let html = '';
-    
+
     // Header
     days.forEach(day => {
         html += `<div class="text-center text-sm font-medium text-slate-500 py-3 border-b">${day}</div>`;
     });
-    
+
     // Calendar days (full month view)
     const currentDate = new Date();
     const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
+
     for (let i = 0; i < 42; i++) {
         const currentDay = new Date(startDate);
         currentDay.setDate(startDate.getDate() + i);
-        
-        const hasLeave = requests.some(req => {
-            const start = new Date(req.start_date);
-            const end = new Date(req.end_date);
-            return currentDay >= start && currentDay <= end;
-        });
-        
+        currentDay.setHours(0, 0, 0, 0); // Normalize time for comparison
+
+        const namesOnLeave = requests
+            .filter(req => {
+                const start = new Date(req.start_date);
+                const end = new Date(req.end_date);
+                start.setHours(0, 0, 0, 0);
+                end.setHours(0, 0, 0, 0);
+                return currentDay >= start && currentDay <= end;
+            })
+            .map(req => req.employee_name);
+
         const isCurrentMonth = currentDay.getMonth() === currentDate.getMonth();
         const isToday = currentDay.toDateString() === new Date().toDateString();
-        
-        let dayClass = 'text-center py-3 text-sm';
+
+        let dayClass = 'h-32 p-2 text-sm flex flex-col border-t border-l'; // Taller cells, flex layout
         if (!isCurrentMonth) {
-            dayClass += ' text-slate-300';
-        } else if (hasLeave) {
-            dayClass += ' bg-indigo-100 text-indigo-700 font-medium';
+            dayClass += ' text-slate-300 bg-slate-50';
+        } else if (namesOnLeave.length > 0) {
+            dayClass += ' bg-indigo-50';
         } else if (isToday) {
-            dayClass += ' bg-indigo-50 text-indigo-600 font-medium';
+            dayClass += ' bg-blue-50';
         } else {
-            dayClass += ' text-slate-700';
+            dayClass += ' text-slate-700 bg-white';
         }
+
+        html += `<div class="${dayClass}">`;
+        html += `<span class="font-bold text-right ${isToday ? 'text-blue-600' : ''}">${currentDay.getDate()}</span>`;
         
-        html += `<div class="${dayClass}">${currentDay.getDate()}</div>`;
+        if (namesOnLeave.length > 0) {
+            html += '<div class="mt-1 text-xs text-left overflow-y-auto">';
+            namesOnLeave.forEach(name => {
+                html += `<div class="bg-indigo-100 text-indigo-700 rounded px-1 py-0.5 mb-1 truncate">${name}</div>`;
+            });
+            html += '</div>';
+        }
+
+        html += `</div>`;
     }
-    
+
     return html;
 }
 
