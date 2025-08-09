@@ -32,8 +32,28 @@ function initGoogleSheets() {
             
             console.log('Google Sheets API initialized successfully');
             
-            // Load data from Google Sheets
-            await loadDataFromSheets();
+            // Test the API key by trying to read the sheet
+            try {
+                const testResponse = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: GOOGLE_SHEET_ID,
+                    range: 'Sheet1!A1:D1'
+                });
+                console.log('API key test successful:', testResponse.data);
+                
+                // Load data from Google Sheets
+                await loadDataFromSheets();
+            } catch (apiError) {
+                console.error('API key test failed:', apiError);
+                console.error('Error details:', apiError.message);
+                console.error('Error code:', apiError.code);
+                
+                // Show user-friendly error
+                showNotification('error', 'Google Sheets API not working. Check API key and permissions.');
+                
+                // Fallback to mock data
+                loadMockData();
+                loadDashboard();
+            }
         } catch (error) {
             console.error('Error initializing Google Sheets API:', error);
             // Fallback to mock data
@@ -165,6 +185,8 @@ async function saveRequestToSheets(request) {
 
 async function saveEmployeeToSheets(employee) {
     try {
+        console.log('Attempting to save employee to Google Sheets:', employee);
+        
         const values = [
             [
                 employee.name,
@@ -174,7 +196,9 @@ async function saveEmployeeToSheets(employee) {
             ]
         ];
         
-        await gapi.client.sheets.spreadsheets.values.append({
+        console.log('Values to save:', values);
+        
+        const response = await gapi.client.sheets.spreadsheets.values.append({
             spreadsheetId: GOOGLE_SHEET_ID,
             range: 'Sheet1!A:D',
             valueInputOption: 'RAW',
@@ -182,9 +206,81 @@ async function saveEmployeeToSheets(employee) {
             resource: { values }
         });
         
-        console.log('Employee saved to Google Sheets');
+        console.log('Employee saved to Google Sheets successfully:', response);
+        showNotification('success', 'Employee saved to Google Sheets!');
     } catch (error) {
         console.error('Error saving employee to Google Sheets:', error);
+        console.error('Error details:', error.message);
+        console.error('Error code:', error.code);
+        showNotification('error', 'Failed to save to Google Sheets. Check console for details.');
+    }
+}
+
+// Test function to manually test Google Sheets API
+async function testGoogleSheetsAPI() {
+    try {
+        console.log('Testing Google Sheets API...');
+        
+        // Test reading
+        const readResponse = await gapi.client.sheets.spreadsheets.values.get({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: 'Sheet1!A1:D1'
+        });
+        console.log('Read test successful:', readResponse.data);
+        
+        // Test writing
+        const testEmployee = {
+            name: 'Test Employee',
+            email: 'test@example.com',
+            employee_id: 'TEST001',
+            department: 'Testing'
+        };
+        
+        await saveEmployeeToSheets(testEmployee);
+        console.log('Write test successful');
+        
+    } catch (error) {
+        console.error('Google Sheets API test failed:', error);
+        console.error('Error details:', error.message);
+        console.error('Error code:', error.code);
+    }
+}
+
+// Test function to manually test EmailJS
+async function testEmailJS() {
+    try {
+        console.log('Testing EmailJS...');
+        
+        if (typeof emailjs === 'undefined') {
+            console.error('EmailJS not loaded');
+            showNotification('error', 'EmailJS not loaded');
+            return;
+        }
+        
+        emailjs.init("otAmILp6ywQ-4GW8R");
+        
+        const templateParams = {
+            to_email: 'pinyapat.dev@gmail.com',
+            to_name: "Test Manager",
+            employee_name: "Test Employee",
+            employee_email: "test@example.com",
+            start_date: "Jan 15, 2024",
+            end_date: "Jan 17, 2024",
+            days_count: 3,
+            reason: "Test email",
+            approve_url: "https://example.com/approve",
+            reject_url: "https://example.com/reject",
+            company_name: "Aliotte Store"
+        };
+        
+        const response = await emailjs.send('service_74tlc53', 'template_tqyri7f', templateParams);
+        console.log('EmailJS test successful:', response);
+        showNotification('success', 'EmailJS test successful!');
+        
+    } catch (error) {
+        console.error('EmailJS test failed:', error);
+        console.error('Error details:', error.message);
+        showNotification('error', 'EmailJS test failed. Check console for details.');
     }
 }
 
