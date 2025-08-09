@@ -38,7 +38,7 @@ function initGoogleSheets() {
                     spreadsheetId: GOOGLE_SHEET_ID,
                     range: 'Employees!A1:D1'
                 });
-                console.log('API key test successful:', testResponse.data);
+                console.log('API key test successful:', testResponse.result);
                 
                 // Load data from Google Sheets
                 await loadDataFromSheets();
@@ -78,9 +78,9 @@ async function loadDataFromSheets() {
             range: 'Employees!A2:D' // Assuming columns: Name, Email, Employee ID, Department
         });
         
-        console.log('Employees data loaded:', employeesResponse.data.values);
+        console.log('Employees data loaded:', employeesResponse.result.values);
         
-        appData.employees = employeesResponse.data.values?.map((row, index) => ({
+        appData.employees = employeesResponse.result.values?.map((row, index) => ({
             id: index + 1,
             name: row[0] || '',
             email: row[1] || '',
@@ -96,9 +96,9 @@ async function loadDataFromSheets() {
             range: 'Request!A2:I' // Assuming columns: Employee Name, Email, Start Date, End Date, Days, Reason, Status, Created Date, Approval Token
         });
         
-        console.log('Requests data loaded:', requestsResponse.data.values);
+        console.log('Requests data loaded:', requestsResponse.result.values);
         
-        appData.requests = requestsResponse.data.values?.map((row, index) => ({
+        appData.requests = requestsResponse.result.values?.map((row, index) => ({
             id: index + 1,
             employee_name: row[0] || '',
             employee_email: row[1] || '',
@@ -226,7 +226,7 @@ async function testGoogleSheetsAPI() {
             spreadsheetId: GOOGLE_SHEET_ID,
             range: 'Employees!A1:D1'
         });
-        console.log('Read test successful:', readResponse.data);
+        console.log('Read test successful:', readResponse.result);
         
         // Test writing
         const testEmployee = {
