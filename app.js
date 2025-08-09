@@ -1,14 +1,99 @@
 // Initialize Lucide icons
 lucide.createIcons();
 
-// Mock data storage (in a real app, this would be a database)
-let mockData = {
-    employees: [
+// Google Sheets configuration
+const GOOGLE_SHEET_ID = '1DvlEFNwbEbbzEGkTgrRxY_GdYls698SvR5PsJyu_oIc';
+const GOOGLE_API_KEY = 'YOUR_GOOGLE_API_KEY'; // You'll need to get this from Google Cloud Console
+
+// Data storage with Google Sheets integration
+let appData = {
+    employees: [],
+    requests: [],
+    currentUser: {
+        name: 'Admin User',
+        email: 'admin@aliotte.com',
+        role: 'admin'
+    },
+    emailSettings: {
+        managerEmail: 'pinyapat.prw@gmail.com',
+        companyName: 'Aliotte Store',
+        approvalBaseUrl: window.location.origin + window.location.pathname
+    }
+};
+
+// Initialize Google Sheets API
+function initGoogleSheets() {
+    gapi.load('client', async () => {
+        await gapi.client.init({
+            apiKey: GOOGLE_API_KEY,
+            discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
+        });
+        
+        // Load data from Google Sheets
+        await loadDataFromSheets();
+    });
+}
+
+// App state
+let currentPage = 'dashboard';
+let isAdmin = appData.currentUser.role === 'admin';
+
+// Google Sheets functions
+async function loadDataFromSheets() {
+    try {
+        // Load employees from Sheet1
+        const employeesResponse = await gapi.client.sheets.spreadsheets.values.get({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: 'Sheet1!A2:D' // Assuming columns: Name, Email, Employee ID, Department
+        });
+        
+        appData.employees = employeesResponse.data.values?.map((row, index) => ({
+            id: index + 1,
+            name: row[0] || '',
+            email: row[1] || '',
+            employee_id: row[2] || '',
+            department: row[3] || ''
+        })).filter(emp => emp.name) || [];
+        
+        // Load requests from Sheet2
+        const requestsResponse = await gapi.client.sheets.spreadsheets.values.get({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: 'Sheet2!A2:I' // Assuming columns: Employee Name, Email, Start Date, End Date, Days, Reason, Status, Created Date, Approval Token
+        });
+        
+        appData.requests = requestsResponse.data.values?.map((row, index) => ({
+            id: index + 1,
+            employee_name: row[0] || '',
+            employee_email: row[1] || '',
+            start_date: row[2] || '',
+            end_date: row[3] || '',
+            days_count: parseInt(row[4]) || 0,
+            reason: row[5] || '',
+            status: row[6] || 'pending',
+            created_date: row[7] || '',
+            approval_token: row[8] || ''
+        })).filter(req => req.employee_name) || [];
+        
+        // Update UI
+        if (currentPage === 'dashboard') loadDashboard();
+        if (currentPage === 'submit-request') loadSubmitRequest();
+        if (currentPage === 'manage-employees') loadManageEmployees();
+        if (currentPage === 'approve-requests') loadApproveRequests();
+        
+    } catch (error) {
+        console.error('Error loading data from Google Sheets:', error);
+        // Fallback to mock data if Google Sheets fails
+        loadMockData();
+    }
+}
+
+function loadMockData() {
+    appData.employees = [
         { id: 1, name: 'John Doe', email: 'john@aliotte.com', employee_id: 'EMP001', department: 'Engineering' },
         { id: 2, name: 'Jane Smith', email: 'jane@aliotte.com', employee_id: 'EMP002', department: 'Marketing' },
         { id: 3, name: 'Bob Johnson', email: 'bob@aliotte.com', employee_id: 'EMP003', department: 'Sales' }
-    ],
-    requests: [
+    ];
+    appData.requests = [
         {
             id: 1,
             employee_name: 'John Doe',
@@ -22,42 +107,52 @@ let mockData = {
             approval_token: 'token_123',
             approved_by: 'pinyapat.prw@gmail.com',
             approved_date: '2024-01-12'
-        },
-        {
-            id: 2,
-            employee_name: 'Jane Smith',
-            employee_email: 'jane@aliotte.com',
-            start_date: '2024-01-20',
-            end_date: '2024-01-22',
-            days_count: 3,
-            reason: 'Family event',
-            status: 'pending',
-            created_date: '2024-01-12',
-            approval_token: 'token_456'
         }
-    ],
-    currentUser: {
-        name: 'Admin User',
-        email: 'admin@aliotte.com',
-        role: 'admin'
-    },
-    // Email configuration
-    emailSettings: {
-        managerEmail: 'pinyapat.prw@gmail.com',
-        companyName: 'Aliotte Store',
-        approvalBaseUrl: window.location.origin + window.location.pathname
-    }
-};
+    ];
+}
 
-// App state
-let currentPage = 'dashboard';
-let isAdmin = mockData.currentUser.role === 'admin';
+async function saveRequestToSheets(request) {
+    try {
+        const values = [
+            [
+                request.employee_name,
+                request.employee_email,
+                request.start_date,
+                request.end_date,
+                request.days_count,
+                request.reason,
+                request.status,
+                request.created_date,
+                request.approval_token
+            ]
+        ];
+        
+        await gapi.client.sheets.spreadsheets.values.append({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: 'Sheet2!A:I',
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            resource: { values }
+        });
+        
+        console.log('Request saved to Google Sheets');
+    } catch (error) {
+        console.error('Error saving to Google Sheets:', error);
+    }
+}
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupEventListeners();
-    loadDashboard();
+    
+    // Try to initialize Google Sheets, fallback to mock data
+    if (typeof gapi !== 'undefined') {
+        initGoogleSheets();
+    } else {
+        loadMockData();
+        loadDashboard();
+    }
     
     // Check for approval token in URL
     checkForApprovalToken();
@@ -65,8 +160,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initializeApp() {
     // Set user info
-    document.getElementById('user-name').textContent = mockData.currentUser.name;
-    document.getElementById('user-initial').textContent = mockData.currentUser.name[0];
+    document.getElementById('user-name').textContent = appData.currentUser.name;
+    document.getElementById('user-initial').textContent = appData.currentUser.name[0];
     document.getElementById('user-role').textContent = isAdmin ? 'Administrator' : 'Employee';
     
     // Show/hide admin elements
@@ -115,7 +210,7 @@ function checkForApprovalToken() {
 }
 
 function handleEmailApproval(token, action) {
-    const request = mockData.requests.find(r => r.approval_token === token);
+    const request = appData.requests.find(r => r.approval_token === token);
     
     if (!request) {
         showNotification('error', 'Invalid approval link');
@@ -129,12 +224,12 @@ function handleEmailApproval(token, action) {
     
     if (action === 'approve') {
         request.status = 'approved';
-        request.approved_by = mockData.emailSettings.managerEmail;
+        request.approved_by = appData.emailSettings.managerEmail;
         request.approved_date = new Date().toISOString().split('T')[0];
         showNotification('success', `Leave request for ${request.employee_name} has been approved!`);
     } else if (action === 'reject') {
         request.status = 'rejected';
-        request.rejected_by = mockData.emailSettings.managerEmail;
+        request.rejected_by = appData.emailSettings.managerEmail;
         request.rejected_date = new Date().toISOString().split('T')[0];
         showNotification('success', `Leave request for ${request.employee_name} has been rejected.`);
     }
@@ -221,7 +316,7 @@ function navigateToPage(page) {
 }
 
 function loadDashboard() {
-    const visibleRequests = isAdmin ? mockData.requests : mockData.requests.filter(r => r.employee_email === mockData.currentUser.email);
+    const visibleRequests = isAdmin ? appData.requests : appData.requests.filter(r => r.employee_email === appData.currentUser.email);
     const pendingCount = visibleRequests.filter(r => r.status === 'pending').length;
     const approvedCount = visibleRequests.filter(r => r.status === 'approved').length;
     const thisMonthRequests = visibleRequests.filter(r => {
@@ -233,7 +328,7 @@ function loadDashboard() {
     // Update stats
     document.getElementById('pending-count').textContent = pendingCount;
     document.getElementById('approved-count').textContent = approvedCount;
-    document.getElementById('employees-count').textContent = isAdmin ? mockData.employees.length : visibleRequests.length;
+    document.getElementById('employees-count').textContent = isAdmin ? appData.employees.length : visibleRequests.length;
     document.getElementById('month-count').textContent = thisMonthRequests;
     
     // Update titles
@@ -285,7 +380,7 @@ function loadRecentRequests(requests) {
 
 function loadCalendarPreview() {
     const container = document.getElementById('calendar-preview');
-    const approvedRequests = mockData.requests.filter(r => r.status === 'approved');
+    const approvedRequests = appData.requests.filter(r => r.status === 'approved');
     
     if (approvedRequests.length === 0) {
         container.innerHTML = '<p class="text-slate-500 text-center py-8">No approved leave requests</p>';
@@ -331,7 +426,7 @@ function loadSubmitRequest() {
     const employeeSelect = document.getElementById('employee-select');
     employeeSelect.innerHTML = '<option value="">Select employee...</option>';
     
-    mockData.employees.forEach(employee => {
+    appData.employees.forEach(employee => {
         const option = document.createElement('option');
         option.value = employee.email;
         option.textContent = `${employee.name} (${employee.department})`;
@@ -339,7 +434,7 @@ function loadSubmitRequest() {
     });
 }
 
-function handleRequestSubmit(e) {
+async function handleRequestSubmit(e) {
     e.preventDefault();
     
     const formData = {
@@ -363,10 +458,10 @@ function handleRequestSubmit(e) {
         // Generate approval token
         const approvalToken = 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
-        // Add request to mock data
+        // Add request to app data
         const newRequest = {
-            id: mockData.requests.length + 1,
-            employee_name: mockData.employees.find(e => e.email === formData.employee_email)?.name || 'Unknown',
+            id: appData.requests.length + 1,
+            employee_name: appData.employees.find(e => e.email === formData.employee_email)?.name || 'Unknown',
             employee_email: formData.employee_email,
             start_date: formData.start_date,
             end_date: formData.end_date,
@@ -377,7 +472,10 @@ function handleRequestSubmit(e) {
             approval_token: approvalToken
         };
         
-        mockData.requests.push(newRequest);
+        appData.requests.push(newRequest);
+        
+        // Save to Google Sheets
+        await saveRequestToSheets(newRequest);
         
         // Send approval email
         sendApprovalEmail(newRequest);
@@ -393,7 +491,7 @@ function handleRequestSubmit(e) {
 }
 
 function sendApprovalEmail(request) {
-    const approvalUrl = `${mockData.emailSettings.approvalBaseUrl}?token=${request.approval_token}`;
+    const approvalUrl = `${appData.emailSettings.approvalBaseUrl}?token=${request.approval_token}`;
     
     // Create email content
     const emailSubject = `Leave Request Approval Required - ${request.employee_name}`;
@@ -417,17 +515,51 @@ This email was sent from the Aliotte Leave Request System.
 If you have any questions, please contact the system administrator.
     `;
     
+    // Send email using EmailJS (you need to set this up)
+    if (typeof emailjs !== 'undefined') {
+        emailjs.init("YOUR_EMAILJS_PUBLIC_KEY");
+        
+        const templateParams = {
+            to_email: appData.emailSettings.managerEmail,
+            to_name: "Manager",
+            employee_name: request.employee_name,
+            employee_email: request.employee_email,
+            start_date: formatDate(new Date(request.start_date)),
+            end_date: formatDate(new Date(request.end_date)),
+            days_count: request.days_count,
+            reason: request.reason,
+            approve_url: `${approvalUrl}&action=approve`,
+            reject_url: `${approvalUrl}&action=reject`,
+            company_name: appData.emailSettings.companyName
+        };
+        
+        emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
+            .then(function(response) {
+                console.log('Email sent successfully:', response);
+                showNotification('success', `Approval email sent to ${appData.emailSettings.managerEmail}`);
+            }, function(error) {
+                console.log('Email failed to send:', error);
+                // Fallback to mailto
+                sendEmailFallback(emailSubject, emailBody, approvalUrl);
+            });
+    } else {
+        // Fallback to mailto if EmailJS is not available
+        sendEmailFallback(emailSubject, emailBody, approvalUrl);
+    }
+}
+
+function sendEmailFallback(subject, body, approvalUrl) {
     // Use mailto: link to open user's email client
-    const mailtoLink = `mailto:${mockData.emailSettings.managerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    const mailtoLink = `mailto:${appData.emailSettings.managerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     
     // Open email client
     window.open(mailtoLink, '_blank');
     
     // Show notification
-    showNotification('success', `Email client opened for ${mockData.emailSettings.managerEmail}. Please send the email manually.`);
+    showNotification('success', `Email client opened for ${appData.emailSettings.managerEmail}. Please send the email manually.`);
     
     // Also show the email content in a modal for easy copying
-    showEmailModal(emailSubject, emailBody, approvalUrl);
+    showEmailModal(subject, body, approvalUrl);
 }
 
 function showEmailModal(subject, body, approvalUrl) {
@@ -496,7 +628,7 @@ function validateBusinessRules(requestData) {
     const currentMonth = startDate.getMonth();
     const currentYear = startDate.getFullYear();
     
-    const monthlyRequests = mockData.requests.filter(req => 
+    const monthlyRequests = appData.requests.filter(req => 
         req.employee_email === requestData.employee_email && 
         req.status === 'approved'
     );
@@ -542,7 +674,7 @@ function showValidationResult(type, message) {
 
 function loadLeaveCalendar() {
     const container = document.getElementById('calendar-container');
-    const approvedRequests = mockData.requests.filter(r => r.status === 'approved');
+    const approvedRequests = appData.requests.filter(r => r.status === 'approved');
     
     container.innerHTML = `
         <div class="grid grid-cols-7 gap-2">
@@ -604,12 +736,12 @@ function loadManageEmployees() {
 function loadEmployeeList() {
     const container = document.getElementById('employee-list');
     
-    if (mockData.employees.length === 0) {
+    if (appData.employees.length === 0) {
         container.innerHTML = '<p class="text-slate-500 text-center py-8">No employees found</p>';
         return;
     }
     
-    container.innerHTML = mockData.employees.map(employee => `
+    container.innerHTML = appData.employees.map(employee => `
         <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
             <div class="flex items-center gap-4">
                 <div class="w-10 h-10 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-full flex items-center justify-center">
@@ -646,18 +778,18 @@ function handleEmployeeSubmit(e) {
     }
     
     // Check if email already exists
-    if (mockData.employees.some(e => e.email === formData.email)) {
+    if (appData.employees.some(e => e.email === formData.email)) {
         alert('Employee with this email already exists');
         return;
     }
     
     // Add employee
     const newEmployee = {
-        id: mockData.employees.length + 1,
+        id: appData.employees.length + 1,
         ...formData
     };
     
-    mockData.employees.push(newEmployee);
+    appData.employees.push(newEmployee);
     
     // Reset form
     e.target.reset();
@@ -671,7 +803,7 @@ function handleEmployeeSubmit(e) {
 
 function loadApproveRequests() {
     const container = document.getElementById('requests-container');
-    const pendingRequests = mockData.requests.filter(r => r.status === 'pending');
+    const pendingRequests = appData.requests.filter(r => r.status === 'pending');
     
     if (pendingRequests.length === 0) {
         container.innerHTML = '<p class="text-slate-500 text-center py-8">No pending requests</p>';
@@ -729,10 +861,10 @@ function loadApproveRequests() {
 }
 
 function approveRequest(requestId) {
-    const request = mockData.requests.find(r => r.id === requestId);
+    const request = appData.requests.find(r => r.id === requestId);
     if (request) {
         request.status = 'approved';
-        request.approved_by = mockData.emailSettings.managerEmail;
+        request.approved_by = appData.emailSettings.managerEmail;
         request.approved_date = new Date().toISOString().split('T')[0];
         loadApproveRequests();
         showNotification('success', 'Request approved successfully!');
@@ -740,10 +872,10 @@ function approveRequest(requestId) {
 }
 
 function rejectRequest(requestId) {
-    const request = mockData.requests.find(r => r.id === requestId);
+    const request = appData.requests.find(r => r.id === requestId);
     if (request) {
         request.status = 'rejected';
-        request.rejected_by = mockData.emailSettings.managerEmail;
+        request.rejected_by = appData.emailSettings.managerEmail;
         request.rejected_date = new Date().toISOString().split('T')[0];
         loadApproveRequests();
         showNotification('success', 'Request rejected');
