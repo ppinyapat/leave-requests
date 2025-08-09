@@ -24,13 +24,22 @@ let appData = {
 // Initialize Google Sheets API
 function initGoogleSheets() {
     gapi.load('client', async () => {
-        await gapi.client.init({
-            apiKey: GOOGLE_API_KEY,
-            discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
-        });
-        
-        // Load data from Google Sheets
-        await loadDataFromSheets();
+        try {
+            await gapi.client.init({
+                apiKey: GOOGLE_API_KEY,
+                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
+            });
+            
+            console.log('Google Sheets API initialized successfully');
+            
+            // Load data from Google Sheets
+            await loadDataFromSheets();
+        } catch (error) {
+            console.error('Error initializing Google Sheets API:', error);
+            // Fallback to mock data
+            loadMockData();
+            loadDashboard();
+        }
     });
 }
 
@@ -41,11 +50,15 @@ let isAdmin = appData.currentUser.role === 'admin';
 // Google Sheets functions
 async function loadDataFromSheets() {
     try {
+        console.log('Loading data from Google Sheets...');
+        
         // Load employees from Sheet1
         const employeesResponse = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: GOOGLE_SHEET_ID,
             range: 'Sheet1!A2:D' // Assuming columns: Name, Email, Employee ID, Department
         });
+        
+        console.log('Employees data loaded:', employeesResponse.data.values);
         
         appData.employees = employeesResponse.data.values?.map((row, index) => ({
             id: index + 1,
@@ -55,11 +68,15 @@ async function loadDataFromSheets() {
             department: row[3] || ''
         })).filter(emp => emp.name) || [];
         
+        console.log('Processed employees:', appData.employees);
+        
         // Load requests from Sheet2
         const requestsResponse = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: GOOGLE_SHEET_ID,
             range: 'Sheet2!A2:I' // Assuming columns: Employee Name, Email, Start Date, End Date, Days, Reason, Status, Created Date, Approval Token
         });
+        
+        console.log('Requests data loaded:', requestsResponse.data.values);
         
         appData.requests = requestsResponse.data.values?.map((row, index) => ({
             id: index + 1,
@@ -74,14 +91,19 @@ async function loadDataFromSheets() {
             approval_token: row[8] || ''
         })).filter(req => req.employee_name) || [];
         
+        console.log('Processed requests:', appData.requests);
+        
         // Update UI
         if (currentPage === 'dashboard') loadDashboard();
         if (currentPage === 'submit-request') loadSubmitRequest();
         if (currentPage === 'manage-employees') loadManageEmployees();
         if (currentPage === 'approve-requests') loadApproveRequests();
         
+        console.log('Data loaded successfully from Google Sheets');
+        
     } catch (error) {
         console.error('Error loading data from Google Sheets:', error);
+        console.error('Error details:', error.message);
         // Fallback to mock data if Google Sheets fails
         loadMockData();
     }
@@ -138,6 +160,31 @@ async function saveRequestToSheets(request) {
         console.log('Request saved to Google Sheets');
     } catch (error) {
         console.error('Error saving to Google Sheets:', error);
+    }
+}
+
+async function saveEmployeeToSheets(employee) {
+    try {
+        const values = [
+            [
+                employee.name,
+                employee.email,
+                employee.employee_id,
+                employee.department
+            ]
+        ];
+        
+        await gapi.client.sheets.spreadsheets.values.append({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: 'Sheet1!A:D',
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            resource: { values }
+        });
+        
+        console.log('Employee saved to Google Sheets');
+    } catch (error) {
+        console.error('Error saving employee to Google Sheets:', error);
     }
 }
 
@@ -761,7 +808,7 @@ function loadEmployeeList() {
     lucide.createIcons();
 }
 
-function handleEmployeeSubmit(e) {
+async function handleEmployeeSubmit(e) {
     e.preventDefault();
     
     const formData = {
@@ -791,6 +838,9 @@ function handleEmployeeSubmit(e) {
     
     appData.employees.push(newEmployee);
     
+    // Save to Google Sheets
+    await saveEmployeeToSheets(newEmployee);
+    
     // Reset form
     e.target.reset();
     
@@ -798,7 +848,7 @@ function handleEmployeeSubmit(e) {
     loadEmployeeList();
     
     // Show success message
-    alert('Employee added successfully!');
+    showNotification('success', 'Employee added successfully!');
 }
 
 function loadApproveRequests() {
