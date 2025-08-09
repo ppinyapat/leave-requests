@@ -36,7 +36,7 @@ function initGoogleSheets() {
             try {
                 const testResponse = await gapi.client.sheets.spreadsheets.values.get({
                     spreadsheetId: GOOGLE_SHEET_ID,
-                    range: 'Sheet1!A1:D1'
+                    range: 'Employees!A1:D1'
                 });
                 console.log('API key test successful:', testResponse.data);
                 
@@ -75,7 +75,7 @@ async function loadDataFromSheets() {
         // Load employees from Sheet1
         const employeesResponse = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet1!A2:D' // Assuming columns: Name, Email, Employee ID, Department
+            range: 'Employees!A2:D' // Assuming columns: Name, Email, Employee ID, Department
         });
         
         console.log('Employees data loaded:', employeesResponse.data.values);
@@ -93,7 +93,7 @@ async function loadDataFromSheets() {
         // Load requests from Sheet2
         const requestsResponse = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet2!A2:I' // Assuming columns: Employee Name, Email, Start Date, End Date, Days, Reason, Status, Created Date, Approval Token
+            range: 'Request!A2:I' // Assuming columns: Employee Name, Email, Start Date, End Date, Days, Reason, Status, Created Date, Approval Token
         });
         
         console.log('Requests data loaded:', requestsResponse.data.values);
@@ -171,7 +171,7 @@ async function saveRequestToSheets(request) {
         
         await gapi.client.sheets.spreadsheets.values.append({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet2!A:I',
+            range: 'Request!A:I',
             valueInputOption: 'RAW',
             insertDataOption: 'INSERT_ROWS',
             resource: { values }
@@ -200,7 +200,7 @@ async function saveEmployeeToSheets(employee) {
         
         const response = await gapi.client.sheets.spreadsheets.values.append({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet1!A:D',
+            range: 'Employees!A:D',
             valueInputOption: 'RAW',
             insertDataOption: 'INSERT_ROWS',
             resource: { values }
@@ -224,7 +224,7 @@ async function testGoogleSheetsAPI() {
         // Test reading
         const readResponse = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet1!A1:D1'
+            range: 'Employees!A1:D1'
         });
         console.log('Read test successful:', readResponse.data);
         
